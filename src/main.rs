@@ -174,3 +174,150 @@ impl Scanner {
         Ok(())
     }
 }
+
+impl Scanner {
+    // Update fungsi scan_url untuk menangani concurrent scanning
+    fn scan_url<'a>(&'a self, url: &'a str, depth: u32) -> BoxFuture<'a, Result<Vec<String>>> {
+        Box::pin(async move {
+            if depth >= self.config.max_depth {
+                return Ok(Vec::new());
+            }
+
+            let domain = Url::parse(url)?
+                .host_str()
+                .context("Invalid URL")?
+                .to_string();
+
+            if !self.config.allowed_domains.contains(&domain) {
+                return Ok(Vec::new());
+            }
+
+            {
+                let mut urls_count = self.urls_per_domain.lock().unwrap();
+                let count = urls_count.entry(domain).or_insert(0);
+                if *count >= self.config.max_urls_per_domain {
+                    return Ok(Vec::new());
+                }
+                *count += 1;
+            }
+
+            self.config.rate_limiter.until_ready().await;
+
+            let mut new_urls = Vec::new();
+            if let Ok(response) = self.client.get(url).send().await {
+                // Analisis header keamanan
+                self.analyze_security_headers(url, response.headers(), depth)?;
+                
+                if response.status().is_success() {
+                    if let Ok(body) = response.text().await {
+                        // Analisis konten
+                        self.analyze_content(url, &body, depth)?;
+                        self.analyze_sensitive_patterns(url, &body, depth)?;
+
+                        // Ekstrak URL baru
+                        if let Ok(extracted_urls) = self.extract_urls(url, &body) {
+                            new_urls.extend(extracted_urls.into_iter().filter(|u| {
+                                self.visited.lock().unwrap().insert(u.clone())
+                            }));
+                        }
+                    }
+                } else if response.status().is_client_error() {
+                    // Catat endpoint yang mengembalikan 4xx sebagai potensial endpoint sensitif
+                    let finding = Finding {
+                        url: url.to_string(),
+                        category: "Access-Control".to_string(),
+                        sensitivity: 7,
+                        description: format!("Restricted endpoint (Status: {})", response.status()),
+                        depth,
+                        risk_level: RiskLevel::High,
+                    };
+                    self.findings.lock().unwrap().push(finding);
+                }
+            }
+
+            Ok(new_urls)
+        })
+    }
+
+    // Update fungsi run untuk menggunakan concurrent scanning
+    async fn run(&self, start_url: &str) -> Result<Vec<Finding>> {
+        let mut pending_urls = vec![start_url.to_string()];
+        let mut current_depth = 0;
+
+        while !pending_urls.is_empty() && current_depth < self.config.max_depth {
+            println!("Scanning depth {}: {} URLs pending", current_depth, pending_urls.len());
+            
+            let mut new_urls = Vec::new();
+            
+            // Process URLs concurrently in chunks
+            for urls_chunk in pending_urls.chunks(MAX_CONCURRENT_REQUESTS) {
+                let futures = urls_chunk.iter().map(|url| self.scan_url(url, current_depth));
+                
+                let results = stream::iter(futures)
+                    .buffer_unordered(MAX_CONCURRENT_REQUESTS)
+                    .collect::<Vec<_>>()
+                    .await;
+
+                for result in results {
+                    if let Ok(urls) = result {
+                        new_urls.extend(urls);
+                    }
+                }
+            }
+
+            pending_urls = new_urls;
+            current_depth += 1;
+        }
+
+        // Generate report
+        let findings = self.findings.lock().unwrap().to_vec();
+        self.generate_report(&findings);
+
+        Ok(findings)
+    }
+
+    // Tambahkan fungsi generate_report untuk output yang lebih terstruktur
+    fn generate_report(&self, findings: &[Finding]) {
+        let mut critical = Vec::new();
+        let mut high = Vec::new();
+        let mut medium = Vec::new();
+        let mut low = Vec::new();
+
+        for finding in findings {
+            match finding.risk_level {
+                RiskLevel::Critical => critical.push(finding),
+                RiskLevel::High => high.push(finding),
+                RiskLevel::Medium => medium.push(finding),
+                RiskLevel::Low => low.push(finding),
+                _ => {}
+            }
+        }
+
+        println!("\n=== SECURITY SCAN REPORT ===");
+        println!("Total Findings: {}", findings.len());
+        println!("Critical: {}", critical.len());
+        println!("High: {}", high.len());
+        println!("Medium: {}", medium.len());
+        println!("Low: {}", low.len());
+        println!("\n=== CRITICAL FINDINGS ===");
+        
+        for finding in critical {
+            println!("\nEndpoint: {}", finding.url);
+            println!("Category: {}", finding.category);
+            println!("Risk: CRITICAL");
+            println!("Description: {}", finding.description);
+            println!("Depth: {}", finding.depth);
+            println!("-----------------");
+        }
+
+        println!("\n=== HIGH RISK FINDINGS ===");
+        for finding in high {
+            println!("\nEndpoint: {}", finding.url);
+            println!("Category: {}", finding.category);
+            println!("Risk: HIGH");
+            println!("Description: {}", finding.description);
+            println!("Depth: {}", finding.depth);
+            println!("-----------------");
+        }
+    }
+}
