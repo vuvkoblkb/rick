@@ -365,3 +365,135 @@ impl Scanner {
         }
         Ok(())
     }
+
+impl Scanner {
+    fn analyze_obfuscation_techniques(&self, url: &str, content: &str, depth: u32) -> Result<()> {
+        let obfuscation_patterns = [
+            // JavaScript Obfuscation
+            (r#"(?i)(eval|atob|btoa|escape|unescape|encodeURI|decodeURI|Function)\s*\(.*?(fromCharCode|String\.fromCharCode)"#, "JavaScript Obfuscation Technique"),
+            
+            // Base64 Encoded Payloads
+            (r#"(?i)(eyJ|YTo|PD94|PHN2|PHNj|PGh0|ZXZh|amF2|ZnVu|Oi8v)[a-zA-Z0-9+/]{30,}={0,2}"#, "Base64 Encoded Payload"),
+            
+            // URL Encoded Payloads
+            (r#"(%[0-9A-Fa-f]{2}){10,}"#, "Complex URL Encoded Content"),
+            
+            // Unicode Escape Sequences
+            (r#"\\u[0-9A-Fa-f]{4}(\\u[0-9A-Fa-f]{4}){3,}"#, "Unicode Escape Sequence Chain"),
+            
+            // Hex Encoded Content
+            (r#"\\x[0-9A-Fa-f]{2}(\\x[0-9A-Fa-f]{2}){10,}"#, "Hex Encoded Content"),
+            
+            // JavaScript String Concatenation
+            (r#"(?i)(['"])\s*\+\s*\1"#, "String Concatenation Obfuscation"),
+            
+            // Advanced Charcode Array
+            (r#"\[[0-9,\s]+\]\.map\(String\.fromCharCode\)"#, "Charcode Array Obfuscation"),
+            
+            // Decode Chains
+            (r#"(?i)(decode|decrypt|deobfuscate|unescape)\s*\(\s*(decode|decrypt|deobfuscate|unescape)"#, "Multiple Decode Chain"),
+        ];
+
+        for (pattern, desc) in &obfuscation_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "Obfuscation Detection".to_string(),
+                        sensitivity: 9,
+                        description: format!("{} - Potential malicious payload", desc),
+                        depth,
+                        risk_level: RiskLevel::High,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn analyze_advanced_xss(&self, url: &str, content: &str, depth: u32) -> Result<()> {
+        let xss_patterns = [
+            // DOM XSS
+            (r#"(?i)(document\.(location|referrer|cookie|write|documentElement)|window\.(location|name|onload|history))"#, "DOM-based XSS Vector"),
+            
+            // Mutation XSS
+            (r#"(?i)(innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval)\s*="#, "Mutation-based XSS"),
+            
+            // Event Handler XSS
+            (r#"(?i)on(mouseenter|mouseleave|mouseover|mouseout|mousedown|mouseup|click|dblclick|keydown|keyup|keypress|submit|load|unload|abort|error|resize|scroll|select|change|focus|blur)"#, "Event Handler XSS"),
+            
+            // Advanced Attribute XSS
+            (r#"(?i)(javascript|data|vbscript):\s*([^\"\'>;]*)(alert|confirm|prompt|eval|setTimeout|setInterval|Function|expression)"#, "Advanced Attribute XSS"),
+            
+            // Template Injection XSS
+            (r#"(?i)\{\{.*?(constructor|prototype|__proto__|__defineGetter__|__defineSetter__|__lookupGetter__|__lookupSetter__)"#, "Template Injection XSS"),
+            
+            // AngularJS XSS
+            (r#"(?i)ng-[a-z]+=".*?(constructor|prototype|window|document|alert|confirm|prompt|eval)"#, "AngularJS XSS"),
+            
+            // SVG XSS
+            (r#"(?i)<svg[^>]*>\s*<(?:script|animate|set|use|image)"#, "SVG-based XSS"),
+            
+            // XML XSS
+            (r#"(?i)<!\[CDATA\[.*?(alert|confirm|prompt|eval|setTimeout|setInterval|Function)"#, "XML CDATA XSS"),
+            
+            // CSS XSS
+            (r#"(?i)expression\s*\(|behavior\s*:|microsoft\s*:\s*expression"#, "CSS Expression XSS"),
+        ];
+
+        for (pattern, desc) in &xss_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "Advanced XSS".to_string(),
+                        sensitivity: 10,
+                        description: desc.to_string(),
+                        depth,
+                        risk_level: RiskLevel::Critical,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn analyze_api_vulnerabilities(&self, url: &str, content: &str, response_headers: &HeaderMap, depth: u32) -> Result<()> {
+        let api_patterns = [
+            // GraphQL Vulnerabilities
+            (r#"(?i)(query|mutation)\s*{\s*.*?\s*{\s*.*?\s*}"#, "GraphQL Query Pattern"),
+            (r#"(?i)__schema\s*{\s*types\s*{\s*name"#, "GraphQL Schema Exposure"),
+            
+            // REST API Vulnerabilities
+            (r#"(?i)/api/v[0-9]+/"#, "API Version Exposure"),
+            (r#"(?i)/swagger\b|/api-docs\b"#, "API Documentation Exposure"),
+            
+            // JWT Issues
+            (r#"(?i)eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*"#, "JWT Token Exposure"),
+            
+            // API Key Exposure
+            (r#"(?i)(api[_-]?key|access[_-]?token)\s*[:=]\s*['"][^'"]{16,}['"]"#, "API Key Exposure"),
+            
+            // CORS Misconfiguration
+            (r#"(?i)Access-Control-Allow-(Origin|Methods|Headers):\s*\*"#, "Permissive CORS Policy"),
+            
+            // Rate Limiting Headers
+            (r#"(?i)(X-Rate-Limit|RateLimit-)"#, "Rate Limit Information Exposure"),
+        ];
+
+        for (pattern, desc) in &api_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) || response_headers.iter().any(|(k, v)| re.is_match(&format!("{}:{}", k.as_str(), v.to_str().unwrap_or("")))) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "API Security".to_string(),
+                        sensitivity: 8,
+                        description: desc.to_string(),
+                        depth,
+                        risk_level: RiskLevel::High,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
