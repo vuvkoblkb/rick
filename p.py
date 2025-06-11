@@ -724,7 +724,7 @@ if __name__ == "__main__":
     
     # KONFIGURASI TARGET - GANTI SESUAI KEBUTUHAN
     TARGET_HOST = "smansatugerokgak.sch.id"  # Testing service yang reliable
-    TARGET_PORT = 80   # HTTP port (gunakan 80 untuk HTTP, 443 untuk HTTPS)
+    TARGET_PORT = 443   # HTTP port (gunakan 80 untuk HTTP, 443 untuk HTTPS)
     
     # Contoh konfigurasi lain:
     # TARGET_HOST = "google.com"; TARGET_PORT = 443      # HTTPS
