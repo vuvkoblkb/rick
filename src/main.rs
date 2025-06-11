@@ -321,3 +321,108 @@ impl Scanner {
         }
     }
 }
+
+impl Scanner {
+    // Tambahkan fungsi baru untuk analisis pola sensitif yang lebih detail
+    fn analyze_sensitive_patterns(&self, url: &str, content: &str, depth: u32) -> Result<()> {
+        let sensitive_patterns = [
+            // Kredensial & Kunci API
+            (r"(?i)(api[_-]?key|api[_-]?token|access[_-]?token|secret[_-]?key)['\"]?\s*[:=]\s*['\"]([^'\"]{8,})['\"]", "API Key/Token Exposure"),
+            (r"(?i)(password|passwd|pwd)['\"]?\s*[:=]\s*['\"]([^'\"]{3,})['\"]", "Password Exposure"),
+            (r"(?i)authorization:\s*bearer\s+[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+", "JWT Token Exposure"),
+            
+            // Cloud Service Credentials
+            (r"AKIA[0-9A-Z]{16}", "AWS Access Key ID"),
+            (r"(?i)(aws_secret|aws_key|aws_access)", "AWS Credential Reference"),
+            (r"(?i)(azure|microsoft)\s*(key|token|secret)", "Azure Credential Reference"),
+            
+            // Database Connection Strings
+            (r"(?i)(mongodb|postgres|mysql)(:\/\/|%3A%2F%2F)[^\s<>'\"]{10,}", "Database Connection String"),
+            (r"(?i)jdbc:[a-z]+:\/\/[^\s<>'\"]+", "JDBC Connection String"),
+            
+            // Private Keys & Certificates
+            (r"-----BEGIN [A-Z ]+ PRIVATE KEY-----", "Private Key Found"),
+            (r"-----BEGIN CERTIFICATE-----", "Certificate Found"),
+            
+            // Internal Infrastructure
+            (r"(?i)(internal|staging|test|dev)[-.]([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}", "Internal Hostname"),
+            (r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b", "IP Address"),
+            
+            // Development & Debug Info
+            (r"(?i)((todo|fixme|hack|xxx|bug|debug):.*)", "Developer Comment"),
+            (r"(?i)(error|exception|trace|debug).*log", "Log File Reference"),
+        ];
+
+        for (pattern, description) in &sensitive_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) {
+                    let finding = Finding {
+                        url: url.to_string(),
+                        category: "Sensitive-Data".to_string(),
+                        sensitivity: 10,
+                        description: description.to_string(),
+                        depth,
+                        risk_level: RiskLevel::Critical,
+                    };
+                    self.findings.lock().unwrap().push(finding);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+// Update fungsi main dengan penanganan error yang lebih baik dan output yang lebih informatif
+#[tokio::main]
+async fn main() -> Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() < 2 {
+        eprintln!("Usage: {} <https://target_url> [depth]", args[0]);
+        eprintln!("Example: {} https://example.com 3", args[0]);
+        return Err(ScannerError::ConfigError("Missing target URL".to_string()).into());
+    }
+
+    let target_url = &args[1];
+    
+    // Validasi URL
+    if !target_url.starts_with("http://") && !target_url.starts_with("https://") {
+        return Err(ScannerError::ConfigError("URL must start with http:// or https://".to_string()).into());
+    }
+
+    println!("🔒 Security Scanner Starting...");
+    println!("Target: {}", target_url);
+    println!("Max Concurrent Requests: {}", MAX_CONCURRENT_REQUESTS);
+    println!("Max Depth: {}", MAX_DEPTH);
+    println!("Rate Limit: {} requests per second", REQUESTS_PER_SECOND);
+    
+    let start_time = std::time::Instant::now();
+    
+    println!("\n[*] Initializing scanner...");
+    let scanner = Scanner::new(target_url).await?;
+    
+    println!("[*] Starting scan...");
+    let findings = scanner.run(target_url).await?;
+    
+    let duration = start_time.elapsed();
+    
+    println!("\n=== SCAN COMPLETE ===");
+    println!("Scan Duration: {:.2} seconds", duration.as_secs_f64());
+    println!("Total Findings: {}", findings.len());
+    
+    // Menghitung statistik
+    let critical_count = findings.iter().filter(|f| f.risk_level == RiskLevel::Critical).count();
+    let high_count = findings.iter().filter(|f| f.risk_level == RiskLevel::High).count();
+    
+    if critical_count > 0 || high_count > 0 {
+        println!("\n⚠️  ATTENTION ⚠️");
+        println!("Found {} critical and {} high risk issues that require immediate attention!", 
+                 critical_count, high_count);
+        println!("\nRecommended Actions:");
+        println!("1. Review all critical findings immediately");
+        println!("2. Document and assess the risk of each finding");
+        println!("3. Develop remediation plan for identified vulnerabilities");
+        println!("4. Consider restricting access to sensitive endpoints");
+    }
+
+    Ok(())
+}
