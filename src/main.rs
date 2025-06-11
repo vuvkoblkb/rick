@@ -40,7 +40,7 @@ pub enum ScannerError {
     ConfigError(String),
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum RiskLevel {
     Critical,
     High,
