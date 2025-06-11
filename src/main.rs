@@ -325,51 +325,50 @@ impl Scanner {
 impl Scanner {
     // Tambahkan fungsi baru untuk analisis pola sensitif yang lebih detail
     fn analyze_sensitive_patterns(&self, url: &str, content: &str, depth: u32) -> Result<()> {
-        let sensitive_patterns = [
-            // Kredensial & Kunci API
-            (r"(?i)(api[_-]?key|api[_-]?token|access[_-]?token|secret[_-]?key)['\"]?\s*[:=]\s*['\"]([^'\"]{8,})['\"]", "API Key/Token Exposure"),
-            (r"(?i)(password|passwd|pwd)['\"]?\s*[:=]\s*['\"]([^'\"]{3,})['\"]", "Password Exposure"),
-            (r"(?i)authorization:\s*bearer\s+[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+", "JWT Token Exposure"),
-            
-            // Cloud Service Credentials
-            (r"AKIA[0-9A-Z]{16}", "AWS Access Key ID"),
-            (r"(?i)(aws_secret|aws_key|aws_access)", "AWS Credential Reference"),
-            (r"(?i)(azure|microsoft)\s*(key|token|secret)", "Azure Credential Reference"),
-            
-            // Database Connection Strings
-            (r"(?i)(mongodb|postgres|mysql)(:\/\/|%3A%2F%2F)[^\s<>'\"]{10,}", "Database Connection String"),
-            (r"(?i)jdbc:[a-z]+:\/\/[^\s<>'\"]+", "JDBC Connection String"),
-            
-            // Private Keys & Certificates
-            (r"-----BEGIN [A-Z ]+ PRIVATE KEY-----", "Private Key Found"),
-            (r"-----BEGIN CERTIFICATE-----", "Certificate Found"),
-            
-            // Internal Infrastructure
-            (r"(?i)(internal|staging|test|dev)[-.]([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}", "Internal Hostname"),
-            (r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b", "IP Address"),
-            
-            // Development & Debug Info
-            (r"(?i)((todo|fixme|hack|xxx|bug|debug):.*)", "Developer Comment"),
-            (r"(?i)(error|exception|trace|debug).*log", "Log File Reference"),
-        ];
+    let sensitive_patterns = [
+        // Kredensial & Kunci API
+        (r#"(?i)(api[_-]?key|api[_-]?token|access[_-]?token|secret[_-]?key)["']?\s*[:=]\s*["']([^"']{8,})["']"#, "API Key/Token Exposure"),
+        (r#"(?i)(password|passwd|pwd)["']?\s*[:=]\s*["']([^"']{3,})["']"#, "Password Exposure"),
+        (r#"(?i)authorization:\s*bearer\s+[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+"#, "JWT Token Exposure"),
+        
+        // Cloud Service Credentials
+        (r"AKIA[0-9A-Z]{16}", "AWS Access Key ID"),
+        (r"(?i)(aws_secret|aws_key|aws_access)", "AWS Credential Reference"),
+        (r"(?i)(azure|microsoft)\s*(key|token|secret)", "Azure Credential Reference"),
+        
+        // Database Connection Strings
+        (r#"(?i)(mongodb|postgres|mysql)(:\/\/|%3A%2F%2F)[^\s<>"']{10,}"#, "Database Connection String"),
+        (r#"(?i)jdbc:[a-z]+:\/\/[^\s<>"']+"#, "JDBC Connection String"),
+        
+        // Private Keys & Certificates
+        (r"-----BEGIN [A-Z ]+ PRIVATE KEY-----", "Private Key Found"),
+        (r"-----BEGIN CERTIFICATE-----", "Certificate Found"),
+        
+        // Internal Infrastructure
+        (r"(?i)(internal|staging|test|dev)[-.]([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}", "Internal Hostname"),
+        (r"\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b", "IP Address"),
+        
+        // Development & Debug Info
+        (r"(?i)((todo|fixme|hack|xxx|bug|debug):.*)", "Developer Comment"),
+        (r"(?i)(error|exception|trace|debug).*log", "Log File Reference"),
+    ];
 
-        for (pattern, description) in &sensitive_patterns {
-            if let Ok(re) = Regex::new(pattern) {
-                if re.is_match(content) {
-                    let finding = Finding {
-                        url: url.to_string(),
-                        category: "Sensitive-Data".to_string(),
-                        sensitivity: 10,
-                        description: description.to_string(),
-                        depth,
-                        risk_level: RiskLevel::Critical,
-                    };
-                    self.findings.lock().unwrap().push(finding);
-                }
+    for (pattern, description) in &sensitive_patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if re.is_match(content) {
+                let finding = Finding {
+                    url: url.to_string(),
+                    category: "Sensitive-Data".to_string(),
+                    sensitivity: 10,
+                    description: description.to_string(),
+                    depth,
+                    risk_level: RiskLevel::Critical,
+                };
+                self.findings.lock().unwrap().push(finding);
             }
         }
-        Ok(())
     }
+    Ok(())
 }
 
 // Update fungsi main dengan penanganan error yang lebih baik dan output yang lebih informatif
