@@ -20,10 +20,10 @@ use std::{
 use thiserror::Error;
 use url::Url;
 
-const REQUESTS_PER_SECOND: u32 = 75;
+const REQUESTS_PER_SECOND: u32 = 150;
 const MAX_DEPTH: u32 = 5;
 const TIMEOUT_SECONDS: u64 = 10;
-const MAX_URLS_PER_DOMAIN: usize = 1000;
+const MAX_URLS_PER_DOMAIN: usize = 1200;
 
 #[derive(Error, Debug)]
 pub enum ScannerError {
