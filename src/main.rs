@@ -565,21 +565,19 @@ impl Scanner {
             }
 
             // Update URLs per domain counter
-            let domain = Url::parse(url)
-                .ok()
-                .and_then(|u| u.host_str().map(|h| h.to_string()))
-                .unwrap_or_default();
+let domain = Url::parse(url)
+    .ok()
+    .and_then(|u| u.host_str().map(|h| h.to_string()))
+    .unwrap_or_default();
 
-            let urls_count = self.urls_per_domain
-                .lock()
-                .unwrap()
-                .entry(domain.clone())
-                .or_insert(0);
+let mut domain_counts = self.urls_per_domain.lock().unwrap();
+let urls_count = domain_counts.entry(domain.clone()).or_insert(0);
 
-            if *urls_count >= self.config.max_urls_per_domain {
-                return Ok(new_urls);
-            }
-            *urls_count += 1;
+if *urls_count >= self.config.max_urls_per_domain {
+    return Ok(new_urls);
+}
+*urls_count += 1;
+drop(domain_counts); // Explicitly drop the lock
 
             // Perform the actual scan
             if let Ok(response) = self.client.get(url).send().await {
