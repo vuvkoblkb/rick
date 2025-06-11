@@ -20,7 +20,7 @@ use std::{
 use thiserror::Error;
 use url::Url;
 
-const REQUESTS_PER_SECOND: u32 = 25;
+const REQUESTS_PER_SECOND: u32 = 75;
 const MAX_DEPTH: u32 = 3;
 const TIMEOUT_SECONDS: u64 = 10;
 const MAX_URLS_PER_DOMAIN: usize = 500;
