@@ -1,0 +1,22 @@
+[package]
+name = "rick"
+version = "0.1.0"
+edition = "2021"
+authors = ["pvanx"]
+description = "alat pengecekan endpoint sensitif dengan cara sederhana"
+
+[dependencies]
+reqwest = { version = "0.11", default-features = false, features = ["rustls-tls", "json", "gzip", "cookies"] }
+scraper = "0.18"
+regex = "1.11"
+url = { version = "2", features = ["serde"] }
+governor = "0.6"
+nonzero_ext = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "1.0"
+rustls = { version = "0.21", features = ["dangerous_configuration"] }
+tokio = { version = "1.32", features = ["rt-multi-thread", "macros", "time", "sync"] }
+futures = "0.3"
+lazy_static = "1.4"
