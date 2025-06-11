@@ -96,3 +96,151 @@ struct ScanRule {
     description: String,
     risk_level: RiskLevel,
 }
+
+impl Scanner {
+    fn analyze_advanced_vulnerabilities(&self, url: &str, content: &str, response_headers: &HeaderMap, depth: u32) -> Result<()> {
+        let advanced_patterns = [
+            // Prototype Pollution
+            (r#"(?i)(Object\.prototype|__proto__|constructor\s*[=:])"#, "Prototype Pollution Vector", RiskLevel::Critical),
+            
+            // GraphQL Introspection & Injection
+            (r#"(?i)(__schema|__type|__typename|\{[\s\n]*introspectionquery)"#, "GraphQL Introspection Exposure", RiskLevel::Critical),
+            
+            // Race Condition Vectors
+            (r#"(?i)(/status|/check|/verify|/confirm|/process).*?(token|id|hash)="#, "Potential Race Condition", RiskLevel::Critical),
+            
+            // Type Confusion
+            (r#"(?i)(typeof|instanceof|constructor\s*=|Object\.create)"#, "Type Confusion Vector", RiskLevel::High),
+            
+            // Memory Corruption
+            (r#"(?i)(buffer|allocate|memory|heap|stack)\s*(overflow|corrupt|size|length)"#, "Memory Corruption Vector", RiskLevel::Critical),
+            
+            // Logic Bombs
+            (r#"(?i)(setTimeout|setInterval|eval|new\s+Function)\s*\(.*?(payload|execute|run)"#, "Logic Bomb Pattern", RiskLevel::Critical),
+            
+            // WebSocket Vulnerabilities
+            (r#"(?i)(ws:|wss:|new\s+WebSocket\(|socket\.)"#, "WebSocket Endpoint", RiskLevel::High),
+            
+            // Browser Exploitation
+            (r#"(?i)(innerhtml|outerhtml|document\.write|eval\(|function\s*\(.*?\)\s*\{)"#, "Client-Side Execution", RiskLevel::Critical),
+            
+            // Advanced XSS Vectors
+            (r#"(?i)(javascript:|data:text/html|vbscript:|<svg\s+onload|<img\s+onerror)"#, "Advanced XSS Vector", RiskLevel::Critical),
+            
+            // Server Side Request Forgery (SSRF)
+            (r#"(?i)(curl_exec|file_get_contents|gopher://|redis://|ftp://)"#, "SSRF Vector", RiskLevel::Critical),
+            
+            // Advanced Injection Points
+            (r#"(?i)(\$\{.*?\}|\{{2}.*?\}{2}|<\?.*?\?>)"#, "Template Injection Point", RiskLevel::Critical),
+            
+            // Deserialization
+            (r#"(?i)(unserialize|deserialize|fromJson|parseObject|readObject)"#, "Deserialization Vector", RiskLevel::Critical),
+            
+            // Advanced File Operations
+            (r#"(?i)(readfile|writefile|appendfile|copyfile|uploadfile)"#, "File Operation Vector", RiskLevel::High),
+
+            // NoSQL Injection
+            (r#"(?i)(\$where|\$regex|\$ne|\$gt|\$lt|\$exists)"#, "NoSQL Injection Vector", RiskLevel::Critical),
+            
+            // Process Control
+            (r#"(?i)(exec|spawn|fork|system|shellexec|cmdexec)"#, "Process Execution Vector", RiskLevel::Critical),
+
+            // Advanced Authentication Bypass
+            (r#"(?i)(jwt\.sign|verify|check.*token|validate.*session)"#, "Auth Bypass Vector", RiskLevel::Critical),
+        ];
+
+        for (pattern, desc, risk) in &advanced_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "Advanced Vulnerability".to_string(),
+                        sensitivity: 10,
+                        description: desc.to_string(),
+                        depth,
+                        risk_level: risk.clone(),
+                    });
+                }
+            }
+        }
+
+        let response_analysis = [
+            // Time-based Analysis
+            |resp: &HeaderMap| {
+                if let Some(timing) = resp.get("Server-Timing") {
+                    if timing.to_str().unwrap_or("").contains("high") {
+                        return Some(("Time-based Vulnerability", "High response time detected - potential for timing attacks"));
+                    }
+                }
+                None
+            },
+            
+            // Header Analysis
+            |resp: &HeaderMap| {
+                if !resp.contains_key("X-Frame-Options") && !resp.contains_key("Content-Security-Policy") {
+                    return Some(("Security Headers Missing", "Critical security headers missing - potential for multiple attacks"));
+                }
+                None
+            },
+            
+            // CORS Analysis
+            |resp: &HeaderMap| {
+                if let Some(cors) = resp.get("Access-Control-Allow-Origin") {
+                    if cors.to_str().unwrap_or("") == "*" {
+                        return Some(("CORS Misconfiguration", "Overly permissive CORS policy"));
+                    }
+                }
+                None
+            },
+        ];
+
+        // Analyze response headers for vulnerabilities
+        for analyzer in &response_analysis {
+            if let Some((category, description)) = analyzer(response_headers) {
+                self.findings.lock().unwrap().push(Finding {
+                    url: url.to_string(),
+                    category: category.to_string(),
+                    sensitivity: 10,
+                    description: description.to_string(),
+                    depth,
+                    risk_level: RiskLevel::Critical,
+                });
+            }
+        }
+
+        // Parameter Analysis
+        if let Ok(parsed_url) = Url::parse(url) {
+            for (key, value) in parsed_url.query_pairs() {
+                self.analyze_parameter(&key, &value, url, depth)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn analyze_parameter(&self, key: &str, value: &str, url: &str, depth: u32) -> Result<()> {
+        let param_patterns = [
+            (r#"\{\s*\$[^}]+\}"#, "Server-Side Template Injection"),
+            (r#"['"]\s*\+\s*['"]\s*"#, "String Concatenation Attack"),
+            (r#"\\/\\.\\.\\/"#, "Path Traversal Evasion"),
+            (r#"\b(?:and|or|not|union|select|from|where)\b.*\b(?:and|or|not|union|select|from|where)\b"#, "SQL Injection Pattern"),
+            (r#"\b(sh|bash|cmd|powershell)\b.*\b(exec|system|run)\b"#, "Command Injection Pattern"),
+        ];
+
+        for (pattern, vuln_type) in &param_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(value) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "Parameter Exploitation".to_string(),
+                        sensitivity: 10,
+                        description: format!("Advanced {} detected in parameter {}", vuln_type, key),
+                        depth,
+                        risk_level: RiskLevel::Critical,
+                    });
+                }
+            }
+        }
+
+        Ok(())
+    }
