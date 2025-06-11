@@ -497,3 +497,199 @@ impl Scanner {
         }
         Ok(())
     }
+
+impl Scanner {
+    fn new(target_url: &str) -> Result<Self> {
+        let url = Url::parse(target_url)?;
+        let domain = url.host_str().ok_or_else(|| ScannerError::ConfigError("Invalid URL".into()))?;
+        
+        let mut allowed_domains = HashSet::new();
+        allowed_domains.insert(domain.to_string());
+
+        let client = Client::builder()
+            .timeout(Duration::from_secs(TIMEOUT_SECONDS))
+            .user_agent("Mozilla/5.0 (compatible; RickScanner/1.0)")
+            .default_headers({
+                let mut headers = HeaderMap::new();
+                headers.insert(ACCEPT, HeaderValue::from_static("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"));
+                headers
+            })
+            .build()?;
+
+        let config = ScanConfig {
+            max_depth: MAX_DEPTH,
+            max_urls_per_domain: MAX_URLS_PER_DOMAIN,
+            allowed_domains,
+            scan_rules: Vec::new(),
+            rate_limiter: Arc::new(RateLimiter::direct(Quota::per_second(nonzero!(REQUESTS_PER_SECOND)))),
+        };
+
+        Ok(Scanner {
+            client,
+            config,
+            visited: Arc::new(Mutex::new(HashSet::new())),
+            findings: Arc::new(Mutex::new(Vec::new())),
+            urls_per_domain: Arc::new(Mutex::new(HashMap::new())),
+        })
+    }
+
+    async fn scan(&self, start_url: &str) -> Result<Vec<Finding>> {
+        let mut urls_to_scan = vec![start_url.to_string()];
+        let mut scanned_urls = HashSet::new();
+        
+        while let Some(url) = urls_to_scan.pop() {
+            if !scanned_urls.contains(&url) {
+                scanned_urls.insert(url.clone());
+                
+                // Rate limiting
+                self.config.rate_limiter.until_ready().await;
+                
+                if let Ok(new_urls) = self.scan_url(&url, 0).await {
+                    urls_to_scan.extend(new_urls);
+                }
+            }
+        }
+        
+        Ok(self.findings.lock().unwrap().clone())
+    }
+
+    fn scan_url<'a>(&'a self, url: &'a str, depth: u32) -> BoxFuture<'a, Result<Vec<String>>> {
+        Box::pin(async move {
+            let mut new_urls = Vec::new();
+
+            // Check depth limit
+            if depth >= self.config.max_depth {
+                return Ok(new_urls);
+            }
+
+            // Check if URL was already visited
+            if !self.visited.lock().unwrap().insert(url.to_string()) {
+                return Ok(new_urls);
+            }
+
+            // Update URLs per domain counter
+            let domain = Url::parse(url)
+                .ok()
+                .and_then(|u| u.host_str().map(|h| h.to_string()))
+                .unwrap_or_default();
+
+            let urls_count = self.urls_per_domain
+                .lock()
+                .unwrap()
+                .entry(domain.clone())
+                .or_insert(0);
+
+            if *urls_count >= self.config.max_urls_per_domain {
+                return Ok(new_urls);
+            }
+            *urls_count += 1;
+
+            // Perform the actual scan
+            if let Ok(response) = self.client.get(url).send().await {
+                let headers = response.headers().clone();
+                
+                if response.status().is_success() {
+                    if let Ok(body) = response.text().await {
+                        // Run all analysis
+                        self.analyze_advanced_vulnerabilities(url, &body, &headers, depth)?;
+                        self.analyze_zero_day_vectors(url, &body, &headers, depth)?;
+                        self.analyze_advanced_injections(url, &body, depth)?;
+                        self.analyze_obfuscation_techniques(url, &body, depth)?;
+                        self.analyze_advanced_xss(url, &body, depth)?;
+                        self.analyze_api_vulnerabilities(url, &body, &headers, depth)?;
+                        self.analyze_crypto_vulnerabilities(&body, url, depth)?;
+                        
+                        // Extract and filter new URLs
+                        if let Ok(extracted_urls) = self.extract_urls(url, &body) {
+                            new_urls.extend(extracted_urls.into_iter().filter(|u| {
+                                if let Ok(parsed) = Url::parse(u) {
+                                    if let Some(host) = parsed.host_str() {
+                                        return self.config.allowed_domains.contains(host);
+                                    }
+                                }
+                                false
+                            }));
+                        }
+                    }
+                }
+            }
+
+            Ok(new_urls)
+        })
+    }
+
+    fn extract_urls(&self, base_url: &str, content: &str) -> Result<Vec<String>> {
+        let mut urls = Vec::new();
+        let base = Url::parse(base_url)?;
+        
+        // Regular expression for URL extraction
+        let url_patterns = [
+            // HTML href links
+            r#"href\s*=\s*["']([^"']+)["']"#,
+            // HTML src attributes
+            r#"src\s*=\s*["']([^"']+)["']"#,
+            // JavaScript URLs
+            r#"(?:url|URL)\s*\(\s*["']([^"']+)["']\s*\)"#,
+            // XML URLs
+            r#"(?:uri|URI)\s*=\s*["']([^"']+)["']"#,
+            // General URLs
+            r#"https?://[^\s<>"'{}|\\^[\]`]++"#,
+        ];
+
+        for pattern in &url_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                for cap in re.captures_iter(content) {
+                    if let Some(url_match) = cap.get(1).or_else(|| cap.get(0)) {
+                        if let Ok(absolute_url) = base.join(url_match.as_str()) {
+                            urls.push(absolute_url.to_string());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(urls)
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    env_logger::init();
+    
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() != 2 {
+        eprintln!("Usage: {} <target_url>", args[0]);
+        std::process::exit(1);
+    }
+
+    let target_url = &args[1];
+    println!("Starting security scan of: {}", target_url);
+
+    let scanner = Scanner::new(target_url)?;
+    let findings = scanner.scan(target_url).await?;
+
+    // Group findings by risk level
+    let mut findings_by_risk = findings
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, finding| {
+            acc.entry(finding.risk_level.clone())
+                .or_insert_with(Vec::new)
+                .push(finding);
+            acc
+        });
+
+    // Print findings sorted by risk level
+    for risk_level in &[RiskLevel::Critical, RiskLevel::High, RiskLevel::Medium, RiskLevel::Low, RiskLevel::Info] {
+        if let Some(level_findings) = findings_by_risk.get(risk_level) {
+            println!("\n{} Level Findings:", risk_level);
+            for finding in level_findings {
+                println!("\nURL: {}", finding.url);
+                println!("Category: {}", finding.category);
+                println!("Description: {}", finding.description);
+                println!("Depth: {}", finding.depth);
+            }
+        }
+    }
+
+    Ok(())
+}
