@@ -663,7 +663,7 @@ async fn main() -> Result<()> {
     let findings = scanner.scan(target_url).await?;
 
     // Group findings by risk level
-    let mut findings_by_risk = findings
+    let findings_by_risk = findings
         .into_iter()
         .fold(HashMap::new(), |mut acc, finding| {
             acc.entry(finding.risk_level.clone())
