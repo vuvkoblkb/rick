@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use futures::{future::BoxFuture, stream::{self, StreamExt}};
+use futures::future::BoxFuture;
 use governor::{
     clock::DefaultClock,
     state::{InMemoryState, NotKeyed},
@@ -11,7 +11,6 @@ use reqwest::{
     header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT},
     Client,
 };
-use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, HashSet},
@@ -99,6 +98,59 @@ struct ScanRule {
 }
 
 impl Scanner {
+    fn create_scan_rules() -> Vec<ScanRule> {
+        vec![
+            // Authentication & Authorization
+            ScanRule {
+                pattern: r"(?i)(/login|/auth|/signin|/signup|/oauth)".to_string(),
+                sensitivity: 10,
+                category: "Authentication".to_string(),
+                description: "Authentication endpoint detected".to_string(),
+                risk_level: RiskLevel::Critical,
+            },
+            // Admin Panels
+            ScanRule {
+                pattern: r"(?i)(/admin|/administrator|/dashboard|/manage)".to_string(),
+                sensitivity: 9,
+                category: "Admin Access".to_string(),
+                description: "Administrative interface detected".to_string(),
+                risk_level: RiskLevel::Critical,
+            },
+            // API Endpoints
+            ScanRule {
+                pattern: r"(?i)(/api/v\d+|/graphql|/graphiql)".to_string(),
+                sensitivity: 8,
+                category: "API".to_string(),
+                description: "API endpoint detected".to_string(),
+                risk_level: RiskLevel::High,
+            },
+            // File Operations
+            ScanRule {
+                pattern: r"(?i)(/upload|/download|/file|/files|/attachment)".to_string(),
+                sensitivity: 7,
+                category: "File Operations".to_string(),
+                description: "File operation endpoint detected".to_string(),
+                risk_level: RiskLevel::High,
+            },
+            // Database Management
+            ScanRule {
+                pattern: r"(?i)(/phpmyadmin|/adminer|/myadmin|/mysql)".to_string(),
+                sensitivity: 10,
+                category: "Database Management".to_string(),
+                description: "Database management interface detected".to_string(),
+                risk_level: RiskLevel::Critical,
+            },
+            // Debug & Development
+            ScanRule {
+                pattern: r"(?i)(/debug|/test|/dev|/phpinfo\.php)".to_string(),
+                sensitivity: 8,
+                category: "Development".to_string(),
+                description: "Development/debug endpoint detected".to_string(),
+                risk_level: RiskLevel::High,
+            },
+        ]
+    }
+
     async fn new(base_url: &str) -> Result<Self> {
         let mut allowed_domains = HashSet::new();
         let base_domain = Url::parse(base_url)?
@@ -210,12 +262,11 @@ impl Scanner {
 
             self.config.rate_limiter.until_ready().await;
 
-            let mut new_urls = Vec::new();
+            let new_urls = Vec::new();
             if let Ok(response) = self.client.get(url).send().await {
                 if response.status().is_success() {
                     if let Ok(body) = response.text().await {
                         self.analyze_sensitive_patterns(url, &body, depth)?;
-                        // Add URL extraction logic here if needed
                     }
                 }
             }
@@ -239,19 +290,32 @@ async fn main() -> Result<()> {
     }
 
     let target_url = &args[1];
-    println!("Starting scan of {}", target_url);
+    println!("🔍 Starting security scan of {}", target_url);
+    println!("⚙️  Configuration:");
+    println!("   - Max Depth: {}", MAX_DEPTH);
+    println!("   - Rate Limit: {} requests per second", REQUESTS_PER_SECOND);
+    println!("   - Timeout: {} seconds", TIMEOUT_SECONDS);
     
     let scanner = Scanner::new(target_url).await?;
     let findings = scanner.run(target_url).await?;
 
-    for finding in findings {
-        println!(
-            "[{}] {} - {} (Sensitivity: {})",
-            finding.risk_level,
-            finding.category,
-            finding.description,
-            finding.sensitivity
-        );
+    println!("\n📊 Scan Results:");
+    let critical = findings.iter().filter(|f| f.risk_level == RiskLevel::Critical).count();
+    let high = findings.iter().filter(|f| f.risk_level == RiskLevel::High).count();
+    
+    println!("Found {} total findings:", findings.len());
+    println!("🚨 Critical: {}", critical);
+    println!("⚠️  High: {}", high);
+
+    if !findings.is_empty() {
+        println!("\n🔍 Detailed Findings:");
+        for finding in findings {
+            println!("\n[{}] {}", finding.risk_level, finding.category);
+            println!("URL: {}", finding.url);
+            println!("Description: {}", finding.description);
+            println!("Sensitivity: {}", finding.sensitivity);
+            println!("------------------");
+        }
     }
 
     Ok(())
