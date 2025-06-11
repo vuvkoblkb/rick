@@ -496,7 +496,6 @@ impl Scanner {
         Ok(())
     }
 
-impl Scanner {
     fn new(target_url: &str) -> Result<Self> {
         let url = Url::parse(target_url)?;
         let domain = url.host_str().ok_or_else(|| ScannerError::ConfigError("Invalid URL".into()))?;
