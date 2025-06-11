@@ -495,10 +495,6 @@ impl Scanner {
     Ok(())
 }  
 
-pub fn add_scan_rule(&mut self, rule: ScanRule) {
-    self.config.scan_rules.push(rule);
-}
-
 pub fn add_scan_rules(&mut self, rules: Vec<ScanRule>) {
     for rule in rules {
         self.config.scan_rules.push(rule);
