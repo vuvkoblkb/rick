@@ -658,7 +658,52 @@ async fn main() -> Result<()> {
     let target_url = &args[1];
     println!("Starting security scan of: {}", target_url);
 
-    let scanner = Scanner::new(target_url)?;
+    // Create scanner with custom rules
+    let mut scanner = Scanner::new(target_url)?;
+
+    // Add default custom rules
+    let default_rules = vec![
+        ScanRule {
+            pattern: r#"(?i)(secret|password|api[_-]?key)\s*=\s*['"][^'"]{8,}['"]"#.to_string(),
+            sensitivity: 9,
+            category: "Custom Secret Detection".to_string(),
+            description: "Potential hardcoded secret detected".to_string(),
+            risk_level: RiskLevel::Critical,
+        },
+        ScanRule {
+            pattern: r#"(?i)(SELECT|INSERT|UPDATE|DELETE).*?(WHERE|FROM|INTO|VALUES)"#.to_string(),
+            sensitivity: 10,
+            category: "Custom SQL Injection Detection".to_string(),
+            description: "Potential SQL query exposure".to_string(),
+            risk_level: RiskLevel::Critical,
+        },
+        ScanRule {
+            pattern: r#"(?i)\.\./(.*?)/(.*?)/"#.to_string(),
+            sensitivity: 8,
+            category: "Custom Path Traversal Detection".to_string(),
+            description: "Potential directory traversal vulnerability".to_string(),
+            risk_level: RiskLevel::High,
+        },
+        ScanRule {
+            pattern: r#"(?i)(admin|root|superuser|sudo)\s*=\s*(true|1|yes)"#.to_string(),
+            sensitivity: 9,
+            category: "Custom Privilege Escalation Detection".to_string(),
+            description: "Potential privilege escalation vector".to_string(),
+            risk_level: RiskLevel::Critical,
+        },
+        ScanRule {
+            pattern: r#"(?i)(auth|token|jwt)\.sign\s*\([^\)]*\)"#.to_string(),
+            sensitivity: 8,
+            category: "Custom Authentication Bypass Detection".to_string(),
+            description: "Potential authentication bypass vector".to_string(),
+            risk_level: RiskLevel::High,
+        }
+    ];
+
+    // Add all default rules
+    scanner.add_scan_rules(default_rules);
+
+    // Start scanning
     let findings = scanner.scan(target_url).await?;
 
     // Group findings by risk level
