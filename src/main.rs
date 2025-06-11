@@ -244,3 +244,124 @@ impl Scanner {
 
         Ok(())
     }
+
+impl Scanner {
+    fn analyze_zero_day_vectors(&self, url: &str, content: &str, response_headers: &HeaderMap, depth: u32) -> Result<()> {
+        let zero_day_patterns = [
+            // HTTP Request Smuggling
+            (r#"(?i)(transfer-encoding:\s*chunked.*content-length:|content-length:.*transfer-encoding:\s*chunked)"#, "HTTP Smuggling Attack Vector", RiskLevel::Critical),
+            
+            // HTTP Request Splitting
+            (r#"(?i)([\r\n][\r\n]|%0d%0a%0d%0a|%0D%0A%0D%0A)"#, "HTTP Splitting Attack Vector", RiskLevel::Critical),
+            
+            // Advanced Cache Poisoning
+            (r#"(?i)(x-forwarded-host|x-forwarded-scheme|x-forwarded-proto|x-host|x-original-url|x-rewrite-url)"#, "Cache Poisoning Vector", RiskLevel::Critical),
+            
+            // Web Cache Deception
+            (r#"(?i)(/\.(?:css|js|txt|jpg|pdf)/.*/(?:conf|config|admin|user|account))"#, "Cache Deception Path", RiskLevel::Critical),
+            
+            // Mass Assignment
+            (r#"(?i)(role|admin|permission|isadmin|access_level)\s*[=:]\s*(?:true|1|yes)"#, "Mass Assignment Vulnerability", RiskLevel::Critical),
+            
+            // Server-Side Prototype Pollution
+            (r#"(?i)(__proto__|constructor|prototype).*?[=:]\s*\{.*?\}"#, "Server-Side Prototype Pollution", RiskLevel::Critical),
+        ];
+
+        for (pattern, desc, risk) in &zero_day_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) || response_headers.iter().any(|(k, v)| re.is_match(&format!("{}:{}", k.as_str(), v.to_str().unwrap_or("")))) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "Zero-Day Vector".to_string(),
+                        sensitivity: 10,
+                        description: desc.to_string(),
+                        depth,
+                        risk_level: risk.clone(),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn analyze_advanced_injections(&self, url: &str, content: &str, depth: u32) -> Result<()> {
+        let injection_patterns = [
+            // Sophisticated SQL Injection
+            (r#"(?i)(\%27|\'|\-\-|\%23|\#|\%3B|;)\s*(and|or|union|select|insert|update|delete|drop|alter|create|rename|truncate|backup|restore)\s*(\%27|\'|\-\-|\%23|\#|\%3B|;)"#, "Advanced SQL Injection Pattern"),
+            
+            // NoSQL Advanced Injection
+            (r#"(?i)(\{|\[)\s*(\$where|\$regex|\$ne|\$gt|\$lt|\$exists|\$in|\$nin|\$all|\$size|\$mod|\$type|\$not)\s*:"#, "NoSQL Advanced Injection Pattern"),
+            
+            // GraphQL Introspection
+            (r#"(?i)(query\s*{\s*__schema\s*{\s*types\s*{\s*name|mutation\s*{\s*fields\s*{\s*name)"#, "GraphQL Introspection Attack"),
+            
+            // LDAP Advanced Injection
+            (r#"(?i)(\*|\(|\)|\||&|!)(objectClass|cn|ou|dc|dn|uid)=.*?\((cn|ou|dc|dn|uid)="#, "LDAP Injection Attack"),
+            
+            // MongoDB Injection
+            (r#"(?i)(\{|\[)\s*(true|false|1|0)\s*:\s*1"#, "MongoDB Injection Attack"),
+            
+            // Advanced XPath Injection
+            (r#"(?i)(/\*|\*/|\[|\]|\||\(|\)|=|and|or|not)\s*(descendant::|ancestor::|following::|preceding::)"#, "XPath Injection Attack"),
+            
+            // Advanced OS Command Injection
+            (r#"(?i)(`|\$\(|\|\||&&|\;|\%0A|\n|\r|\%0D)\s*(cat|tac|nl|more|less|head|tail|od|strings|curl|wget|fetch|lwp-download|lynx|w3m)"#, "OS Command Injection Attack"),
+            
+            // Advanced Format String Injection
+            (r#"(?i)(%[0-9]*\$[dioxXucsfeEgGpn]|%[0-9.]*l?[dioxXucsfeEgGpn])"#, "Format String Attack"),
+            
+            // Template Injection
+            (r#"(?i)(\{\{.*?\}\}|\${.*?}|\#{.*?}|<%.*?%>|\$\{.*?\})"#, "Template Injection Attack"),
+        ];
+
+        for (pattern, desc) in &injection_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "Advanced Injection".to_string(),
+                        sensitivity: 10,
+                        description: format!("Critical: {} detected", desc),
+                        depth,
+                        risk_level: RiskLevel::Critical,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn analyze_crypto_vulnerabilities(&self, content: &str, url: &str, depth: u32) -> Result<()> {
+        let crypto_patterns = [
+            // Weak Crypto
+            (r#"(?i)(MD5|SHA1|RC4|DES|ECB)"#, "Weak Cryptographic Algorithm"),
+            
+            // Hardcoded Crypto Keys
+            (r#"(?i)(private_key|secret_key|encryption_key)\s*=\s*['"][0-9a-fA-F]{16,}['"]"#, "Hardcoded Cryptographic Key"),
+            
+            // Insecure Random
+            (r#"(?i)(Math\.random|rand\(|random\()"#, "Insecure Random Number Generator"),
+            
+            // Weak SSL/TLS Configuration
+            (r#"(?i)(SSLv2|SSLv3|TLSv1\.0|TLSv1\.1)"#, "Weak SSL/TLS Protocol"),
+            
+            // Null Cipher
+            (r#"(?i)(NULL-SHA|NULL-MD5|aNULL|eNULL)"#, "Null Cipher Usage"),
+        ];
+
+        for (pattern, desc) in &crypto_patterns {
+            if let Ok(re) = Regex::new(pattern) {
+                if re.is_match(content) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: "Cryptographic Vulnerability".to_string(),
+                        sensitivity: 9,
+                        description: desc.to_string(),
+                        depth,
+                        risk_level: RiskLevel::Critical,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
