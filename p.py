@@ -1,3 +1,10 @@
+#!/usr/bin/env python3
+"""
+Enhanced SSL Load Testing Tool
+High-intensity SSL/TLS performance testing with heavy computational ciphers
+For legitimate server performance testing only
+"""
+
 import ssl
 import socket
 import threading
@@ -32,36 +39,8 @@ class EnhancedSSLLoadTester:
             'DHE-DSS-DES-CBC3-SHA',
             'PSK-3DES-EDE-CBC-SHA',
             'SRP-3DES-EDE-CBC-SHA',
-            'DES-CBC3-SHA',
-'ECDHE-RSA-DES-CBC3-SHA',
-'ECDHE-ECDSA-DES-CBC3-SHA',
-'DHE-RSA-DES-CBC3-SHA',
-'DHE-DSS-DES-CBC3-SHA',
-'PSK-3DES-EDE-CBC-SHA',
-'SRP-DSS-3DES-EDE-CBC-SHA',
-'SRP-RSA-3DES-EDE-CBC-SHA',
-'AES256-SHA',
-'AES128-SHA',
-'DHE-RSA-AES256-SHA',
-'DHE-RSA-AES128-SHA',
-'ECDHE-RSA-AES256-SHA',
-'ECDHE-RSA-AES128-SHA',
-'ECDHE-ECDSA-AES256-SHA',
-'ECDHE-ECDSA-AES128-SHA',
-'CAMELLIA256-SHA',
-'CAMELLIA128-SHA',
-'DHE-RSA-CAMELLIA256-SHA',
-'DHE-RSA-CAMELLIA128-SHA',
-'SEED-SHA',
-'IDEA-CBC-SHA',
-'RC4-SHA',
-'RC4-MD5',
-'EXP-RC4-MD5',
-'EXP-DES-CBC-SHA',
-'EXP-EDH-RSA-DES-CBC-SHA',
-'EXP-EDH-DSS-DES-CBC-SHA',
-'NULL-MD5',
-'NULL-SHA',
+            
+            # Camellia ciphers (heavy processing)
             'ECDHE-RSA-CAMELLIA256-CBC-SHA384',
             'ECDHE-ECDSA-CAMELLIA256-CBC-SHA384',
             'DHE-RSA-CAMELLIA256-CBC-SHA256',
@@ -114,7 +93,7 @@ class EnhancedSSLLoadTester:
         ]
         
     def auto_detect_ssl_port(self, host):
-        
+        """Auto-detect available SSL/TLS ports"""
         common_ssl_ports = [443, 8443, 9443, 8080, 8000, 3000, 5000, 6443, 10443]
         
         print(f"🔍 Auto-detecting SSL ports for {host}...")
@@ -596,7 +575,9 @@ class EnhancedSSLLoadTester:
                         time.sleep(1)
                 
                 del thread_memory
-threads = []
+            
+            # Start threads for this process
+            threads = []
             for t in range(threads_per_process):
                 thread = threading.Thread(target=extreme_thread_worker)
                 thread.daemon = True
