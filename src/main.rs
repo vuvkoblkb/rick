@@ -594,70 +594,69 @@ fn run_custom_rules(&self, url: &str, content: &str, headers: &HeaderMap, depth:
     }
 
     fn scan_url<'a>(&'a self, url: &'a str, depth: u32) -> BoxFuture<'a, Result<Vec<String>>> {
-        Box::pin(async move {
-            let mut new_urls = Vec::new();
+    Box::pin(async move {
+        let mut new_urls = Vec::new();
 
-            // Check depth limit
-            if depth >= self.config.max_depth {
+        // Check depth limit
+        if depth >= self.config.max_depth {
+            return Ok(new_urls);
+        }
+
+        // Check if URL was already visited
+        if !self.visited.lock().unwrap().insert(url.to_string()) {
+            return Ok(new_urls);
+        }
+
+        let domain = Url::parse(url)
+            .ok()
+            .and_then(|u| u.host_str().map(|h| h.to_string()))
+            .unwrap_or_default();
+
+        {
+            let mut domain_counts = self.urls_per_domain.lock().unwrap();
+            let urls_count = domain_counts.entry(domain.clone()).or_insert(0);
+            if *urls_count >= self.config.max_urls_per_domain {
                 return Ok(new_urls);
             }
+            *urls_count += 1;
+        }
 
-            // Check if URL was already visited
-            if !self.visited.lock().unwrap().insert(url.to_string()) {
-                return Ok(new_urls);
-            }
+        // Perform the actual scan
+        if let Ok(response) = self.client.get(url).send().await {
+            let headers = response.headers().clone();
+            
+            if response.status().is_success() {
+                if let Ok(body) = response.text().await {
+                    // Run custom rules first
+                    self.run_custom_rules(url, &body, &headers, depth)?;
 
-            let domain = Url::parse(url)
-    .ok()
-    .and_then(|u| u.host_str().map(|h| h.to_string()))
-    .unwrap_or_default();
-
-{
-    let mut domain_counts = self.urls_per_domain.lock().unwrap();
-    let urls_count = domain_counts.entry(domain.clone()).or_insert(0);
-    if *urls_count >= self.config.max_urls_per_domain {
-        return Ok(new_urls);
-    }
-    *urls_count += 1;
-}
-
-            // Perform the actual scan
-            if let Ok(response) = self.client.get(url).send().await {
-                let headers = response.headers().clone();
-                
-                if response.status().is_success() {
-    if let Ok(body) = response.text().await {
-        // Run custom rules first
-        self.run_custom_rules(url, &body, &headers, depth)?;
-
-        // Run all built-in analysis
-        self.analyze_advanced_vulnerabilities(url, &body, &headers, depth)?;
-        self.analyze_zero_day_vectors(url, &body, &headers, depth)?;
-        self.analyze_advanced_injections(url, &body, depth)?;
-        self.analyze_obfuscation_techniques(url, &body, depth)?;
-        self.analyze_advanced_xss(url, &body, depth)?;
-        self.analyze_api_vulnerabilities(url, &body, &headers, depth)?;
-        self.analyze_crypto_vulnerabilities(&body, url, depth)?;
-                        
-                        // Extract and filter new URLs
-                        if let Ok(extracted_urls) = self.extract_urls(url, &body) {
-                            new_urls.extend(extracted_urls.into_iter().filter(|u| {
-                                if let Ok(parsed) = Url::parse(u) {
-                                    if let Some(host) = parsed.host_str() {
-                                        return self.config.allowed_domains.contains(host);
-                                    }
+                    // Run all built-in analysis
+                    self.analyze_advanced_vulnerabilities(url, &body, &headers, depth)?;
+                    self.analyze_zero_day_vectors(url, &body, &headers, depth)?;
+                    self.analyze_advanced_injections(url, &body, depth)?;
+                    self.analyze_obfuscation_techniques(url, &body, depth)?;
+                    self.analyze_advanced_xss(url, &body, depth)?;
+                    self.analyze_api_vulnerabilities(url, &body, &headers, depth)?;
+                    self.analyze_crypto_vulnerabilities(&body, url, depth)?;
+                    
+                    // Extract and filter new URLs
+                    if let Ok(extracted_urls) = self.extract_urls(url, &body) {
+                        new_urls.extend(extracted_urls.into_iter().filter(|u| {
+                            if let Ok(parsed) = Url::parse(u) {
+                                if let Some(host) = parsed.host_str() {
+                                    return self.config.allowed_domains.contains(host);
                                 }
-                                false
-                            }));
-                        }
+                            }
+                            false
+                        }));
                     }
                 }
             }
+        }
 
-            Ok(new_urls)
-        })
-    }
-
+        Ok(new_urls)
+    })
+}
     fn extract_urls(&self, base_url: &str, content: &str) -> Result<Vec<String>> {
         let mut urls = Vec::new();
         let base = Url::parse(base_url)?;
