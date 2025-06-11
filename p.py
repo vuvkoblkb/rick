@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-"""
-Enhanced SSL Load Testing Tool
-High-intensity SSL/TLS performance testing with heavy computational ciphers
-For legitimate server performance testing only
-"""
-
 import ssl
 import socket
 import threading
@@ -93,7 +86,7 @@ class EnhancedSSLLoadTester:
         ]
         
     def auto_detect_ssl_port(self, host):
-        """Auto-detect available SSL/TLS ports"""
+
         common_ssl_ports = [443, 8443, 9443, 8080, 8000, 3000, 5000, 6443, 10443]
         
         print(f"🔍 Auto-detecting SSL ports for {host}...")
@@ -890,7 +883,7 @@ if __name__ == "__main__":
                     print("Benchmark suite cancelled")
             else:
                 print("🔄 Mixed Protocol Testing")
-                # Test both HTTP and HTTPS if available
+                
                 available_ports = tester.auto_detect_ssl_port(TARGET_HOST)
                 for port in [80, 443] + available_ports:
                     if port != TARGET_PORT:
@@ -902,9 +895,9 @@ if __name__ == "__main__":
                             temp_tester.http_load_test(TARGET_HOST, port, processes=2, threads_per_process=2, duration=300)
         
         else:
-            print("Invalid choice")
+            print("")
     
     else:
-        print("❌ Test cancelled")
-        print("Remember: Only test servers you own or have explicit permission to test!")
-        print("Unauthorized load testing may be illegal and violate terms of service!")
+        print("y")
+        print("ya")
+        print("uh")
