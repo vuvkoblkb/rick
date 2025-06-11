@@ -723,7 +723,7 @@ if __name__ == "__main__":
     print("=" * 80)
     
     # KONFIGURASI TARGET - GANTI SESUAI KEBUTUHAN
-    TARGET_HOST = "smansatugerokgak.sch"  # Testing service yang reliable
+    TARGET_HOST = "smansatugerokgak.sch.id"  # Testing service yang reliable
     TARGET_PORT = 80   # HTTP port (gunakan 80 untuk HTTP, 443 untuk HTTPS)
     
     # Contoh konfigurasi lain:
