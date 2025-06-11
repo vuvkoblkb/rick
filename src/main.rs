@@ -245,7 +245,6 @@ impl Scanner {
         Ok(())
     }
 
-impl Scanner {
     fn analyze_zero_day_vectors(&self, url: &str, content: &str, response_headers: &HeaderMap, depth: u32) -> Result<()> {
         let zero_day_patterns = [
             // HTTP Request Smuggling
@@ -366,7 +365,6 @@ impl Scanner {
         Ok(())
     }
 
-impl Scanner {
     fn analyze_obfuscation_techniques(&self, url: &str, content: &str, depth: u32) -> Result<()> {
         let obfuscation_patterns = [
             // JavaScript Obfuscation
