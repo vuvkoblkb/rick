@@ -622,15 +622,18 @@ fn run_custom_rules(&self, url: &str, content: &str, headers: &HeaderMap, depth:
                 let headers = response.headers().clone();
                 
                 if response.status().is_success() {
-                    if let Ok(body) = response.text().await {
-                        // Run all analysis
-                        self.analyze_advanced_vulnerabilities(url, &body, &headers, depth)?;
-                        self.analyze_zero_day_vectors(url, &body, &headers, depth)?;
-                        self.analyze_advanced_injections(url, &body, depth)?;
-                        self.analyze_obfuscation_techniques(url, &body, depth)?;
-                        self.analyze_advanced_xss(url, &body, depth)?;
-                        self.analyze_api_vulnerabilities(url, &body, &headers, depth)?;
-                        self.analyze_crypto_vulnerabilities(&body, url, depth)?;
+    if let Ok(body) = response.text().await {
+        // Run custom rules first
+        self.run_custom_rules(url, &body, &headers, depth)?;
+
+        // Run all built-in analysis
+        self.analyze_advanced_vulnerabilities(url, &body, &headers, depth)?;
+        self.analyze_zero_day_vectors(url, &body, &headers, depth)?;
+        self.analyze_advanced_injections(url, &body, depth)?;
+        self.analyze_obfuscation_techniques(url, &body, depth)?;
+        self.analyze_advanced_xss(url, &body, depth)?;
+        self.analyze_api_vulnerabilities(url, &body, &headers, depth)?;
+        self.analyze_crypto_vulnerabilities(&body, url, depth)?;
                         
                         // Extract and filter new URLs
                         if let Ok(extracted_urls) = self.extract_urls(url, &body) {
