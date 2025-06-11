@@ -488,12 +488,52 @@ impl Scanner {
                         description: desc.to_string(),
                         depth,
                         risk_level: RiskLevel::High,
+
+
+pub fn add_scan_rule(&mut self, rule: ScanRule) {
+    self.config.scan_rules.push(rule);
+}
+
+pub fn add_scan_rules(&mut self, rules: Vec<ScanRule>) {
+    for rule in rules {
+        self.config.scan_rules.push(rule);
+    }
+}
+
+fn run_custom_rules(&self, url: &str, content: &str, headers: &HeaderMap, depth: u32) -> Result<()> {
+    if !self.config.scan_rules.is_empty() {
+        for rule in &self.config.scan_rules {
+            if let Ok(re) = Regex::new(&rule.pattern) {
+                // Check content
+                if re.is_match(content) {
+                    self.findings.lock().unwrap().push(Finding {
+                        url: url.to_string(),
+                        category: rule.category.clone(),
+                        sensitivity: rule.sensitivity,
+                        description: format!("{} - Custom Rule Match", rule.description),
+                        depth,
+                        risk_level: rule.risk_level.clone(),
                     });
+                }
+
+                // Check headers
+                for (key, value) in headers.iter() {
+                    if re.is_match(&format!("{}:{}", key.as_str(), value.to_str().unwrap_or(""))) {
+                        self.findings.lock().unwrap().push(Finding {
+                            url: url.to_string(),
+                            category: rule.category.clone(),
+                            sensitivity: rule.sensitivity,
+                            description: format!("{} - Found in Headers", rule.description),
+                            depth,
+                            risk_level: rule.risk_level.clone(),
+                        });
+                    }
                 }
             }
         }
-        Ok(())
     }
+    Ok(())
+}
 
     fn new(target_url: &str) -> Result<Self> {
         let url = Url::parse(target_url)?;
