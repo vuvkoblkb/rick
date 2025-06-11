@@ -456,39 +456,44 @@ impl Scanner {
     }
 
     fn analyze_api_vulnerabilities(&self, url: &str, content: &str, response_headers: &HeaderMap, depth: u32) -> Result<()> {
-        let api_patterns = [
-            // GraphQL Vulnerabilities
-            (r#"(?i)(query|mutation)\s*{\s*.*?\s*{\s*.*?\s*}"#, "GraphQL Query Pattern"),
-            (r#"(?i)__schema\s*{\s*types\s*{\s*name"#, "GraphQL Schema Exposure"),
-            
-            // REST API Vulnerabilities
-            (r#"(?i)/api/v[0-9]+/"#, "API Version Exposure"),
-            (r#"(?i)/swagger\b|/api-docs\b"#, "API Documentation Exposure"),
-            
-            // JWT Issues
-            (r#"(?i)eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*"#, "JWT Token Exposure"),
-            
-            // API Key Exposure
-            (r#"(?i)(api[_-]?key|access[_-]?token)\s*[:=]\s*['"][^'"]{16,}['"]"#, "API Key Exposure"),
-            
-            // CORS Misconfiguration
-            (r#"(?i)Access-Control-Allow-(Origin|Methods|Headers):\s*\*"#, "Permissive CORS Policy"),
-            
-            // Rate Limiting Headers
-            (r#"(?i)(X-Rate-Limit|RateLimit-)"#, "Rate Limit Information Exposure"),
-        ];
+    let api_patterns = [
+        // GraphQL Vulnerabilities
+        (r#"(?i)(query|mutation)\s*{\s*.*?\s*{\s*.*?\s*}"#, "GraphQL Query Pattern"),
+        (r#"(?i)__schema\s*{\s*types\s*{\s*name"#, "GraphQL Schema Exposure"),
+        
+        // REST API Vulnerabilities
+        (r#"(?i)/api/v[0-9]+/"#, "API Version Exposure"),
+        (r#"(?i)/swagger\b|/api-docs\b"#, "API Documentation Exposure"),
+        
+        // JWT Issues
+        (r#"(?i)eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*"#, "JWT Token Exposure"),
+        
+        // API Key Exposure
+        (r#"(?i)(api[_-]?key|access[_-]?token)\s*[:=]\s*['"][^'"]{16,}['"]"#, "API Key Exposure"),
+        
+        // CORS Misconfiguration
+        (r#"(?i)Access-Control-Allow-(Origin|Methods|Headers):\s*\*"#, "Permissive CORS Policy"),
+        
+        // Rate Limiting Headers
+        (r#"(?i)(X-Rate-Limit|RateLimit-)"#, "Rate Limit Information Exposure"),
+    ];
 
-        for (pattern, desc) in &api_patterns {
-            if let Ok(re) = Regex::new(pattern) {
-                if re.is_match(content) || response_headers.iter().any(|(k, v)| re.is_match(&format!("{}:{}", k.as_str(), v.to_str().unwrap_or("")))) {
-                    self.findings.lock().unwrap().push(Finding {
-                        url: url.to_string(),
-                        category: "API Security".to_string(),
-                        sensitivity: 8,
-                        description: desc.to_string(),
-                        depth,
-                        risk_level: RiskLevel::High,
-
+    for (pattern, desc) in &api_patterns {
+        if let Ok(re) = Regex::new(pattern) {
+            if re.is_match(content) || response_headers.iter().any(|(k, v)| re.is_match(&format!("{}:{}", k.as_str(), v.to_str().unwrap_or("")))) {
+                self.findings.lock().unwrap().push(Finding {
+                    url: url.to_string(),
+                    category: "API Security".to_string(),
+                    sensitivity: 8,
+                    description: desc.to_string(),
+                    depth,
+                    risk_level: RiskLevel::High,
+                });
+            }
+        }
+    }
+    Ok(())
+}  
 
 pub fn add_scan_rule(&mut self, rule: ScanRule) {
     self.config.scan_rules.push(rule);
@@ -534,7 +539,6 @@ fn run_custom_rules(&self, url: &str, content: &str, headers: &HeaderMap, depth:
     }
     Ok(())
 }
-
     fn new(target_url: &str) -> Result<Self> {
         let url = Url::parse(target_url)?;
         let domain = url.host_str().ok_or_else(|| ScannerError::ConfigError("Invalid URL".into()))?;
