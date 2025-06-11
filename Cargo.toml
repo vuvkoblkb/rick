@@ -3,26 +3,41 @@ name = "rick"
 version = "0.1.0"
 edition = "2021"
 authors = ["vuvkoblkb"]
-description = "A security scanner for web applications"
+description = "An advanced security scanner for web applications"
 
 [dependencies]
-tokio = { version = "1.28.2", features = ["full"] }
-reqwest = { version = "0.11.18", features = ["json", "native-tls"] }
-futures = "0.3.28"
-anyhow = "1.0.71"
-thiserror = "1.0.40"
-serde = { version = "1.0.163", features = ["derive"] }
-serde_json = "1.0.96"
-regex = "1.8.3"
-url = "2.3.1"
-governor = "0.5.1"
-nonzero_ext = "0.3.0"
-async-trait = "0.1.68"
-log = "0.4.17"
-env_logger = "0.10.0"
-chrono = "0.4.26"
-indicatif = "0.17.3"
-colored = "2.0.0"
+# Async runtime
+tokio = { version = "1.28", features = ["full"] }
+futures = "0.3"
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# URL parsing and manipulation
+url = "2.4"
+
+# Regular expressions
+regex = "1.8"
+
+# Rate limiting
+governor = "0.5"
+
+# Logging
+env_logger = "0.10"
+log = "0.4"
+
+# Utilities
+nonzero_ext = "0.3"
+async-trait = "0.1"
+chrono = "0.4"
 
 [profile.release]
 opt-level = 3
@@ -34,3 +49,7 @@ strip = true
 [profile.dev]
 opt-level = 0
 debug = true
+
+[[bin]]
+name = "rick"
+path = "src/main.rs"
