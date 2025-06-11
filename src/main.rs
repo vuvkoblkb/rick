@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result,
 use futures::future::BoxFuture;
 use governor::{
     clock::DefaultClock,
@@ -8,7 +8,7 @@ use governor::{
 use nonzero_ext::*;
 use regex::Regex;
 use reqwest::{
-    header::{HeaderMap, HeaderValue, ACCEPT, USER_AGENT},
+    header::{HeaderMap, HeaderValue, ACCEPT},
     Client,
 };
 use serde::{Deserialize, Serialize};
